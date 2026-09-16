@@ -456,16 +456,54 @@ function renderEntries() {
   entryList.innerHTML = entries
     .map(
       (e, i) => `
-      <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-semibold text-slate-800">${escapeHtml(e.name)}${e.id ? ` <span class="font-normal text-slate-400">(${escapeHtml(e.id)})</span>` : ""}</div>
-          <div class="text-xs text-slate-500">${escapeHtml(e.slot)} • ${escapeHtml(e.reporting)}</div>
+    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <div class="min-w-0 flex-1">
+        <div class="truncate text-sm font-semibold text-slate-800">
+          ${escapeHtml(e.name)}
+          ${e.id ? ` <span class="font-normal text-slate-400">(${escapeHtml(e.id)})</span>` : ""}
         </div>
-        <button data-delete="${i}" class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">Delete</button>
+
+        <div class="text-xs text-slate-500">
+          ${escapeHtml(e.slot)} • ${escapeHtml(e.reporting)}
+        </div>
       </div>
-    `,
+
+      <div class="flex gap-2">
+        <button
+          data-edit="${i}"
+          class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50">
+          Edit
+        </button>
+
+        <button
+          data-delete="${i}"
+          class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
+          Delete
+        </button>
+      </div>
+    </div>
+  `,
     )
     .join("");
+
+  entryList.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const index = Number(btn.dataset.edit);
+      const entry = entries[index];
+
+      timeInput.value = entry.rawTime || "";
+      nameInput.value = entry.name;
+      idInput.value = entry.id;
+
+      entries.splice(index, 1);
+
+      renderEntries();
+      renderTable();
+
+      nameInput.focus();
+      setStatus("Entry loaded for editing.");
+    });
+  });
 
   entryList.querySelectorAll("[data-delete]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -683,7 +721,7 @@ function addEntry() {
     reporting = format12(parsed.start);
   }
 
-  entries.push({ slot, name, id, reporting });
+  entries.push({ rawTime, slot, name, id, reporting });
 
   timeInput.value = "";
   nameInput.value = "";
