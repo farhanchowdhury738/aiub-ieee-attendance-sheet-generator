@@ -520,6 +520,10 @@ body {
     height: 30px !important;
     padding-top: 8px !important;
     padding-bottom: 8px !important;
+
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
   #timeInput {
     height: 35px !important;
