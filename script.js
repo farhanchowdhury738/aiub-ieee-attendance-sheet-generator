@@ -1,3 +1,4 @@
+// Application state and DOM references
 const entries = [];
 
 const dateInput = document.getElementById("dateInput");
@@ -13,7 +14,11 @@ const eventBtn = document.getElementById("eventBtn");
 const eventBtnLabel = document.getElementById("eventBtnLabel");
 const participantBtn = document.getElementById("participantBtn");
 const dateControl = document.getElementById("dateControl");
+const titleControl = document.getElementById("titleControl");
 const entryControls = document.getElementById("entryControls");
+const timeControl = document.getElementById("timeControl");
+const nameControl = document.getElementById("nameControl");
+const idControl = document.getElementById("idControl");
 const entryActionButtons = document.getElementById("entryActionButtons");
 const entriesSection = document.getElementById("entriesSection");
 const entryList = document.getElementById("entryList");
@@ -26,27 +31,12 @@ const participantDate = document.getElementById("participantDate");
 const statusBox = document.getElementById("status");
 
 const DEFAULT_BRAND_TITLE = "IEEE AIUB Student Branch";
-
-/* =========================================================
-   EXPORT GEOMETRY HELPERS
-
-   The live preview is the SINGLE SOURCE OF TRUTH.
-   Every exported file (PDF and Word) is rebuilt from the
-   measurements and computed styles of the elements that are
-   on screen right now, so nothing is hard-coded twice.
-
-   These helpers are only used while generating a download.
-   They never touch the live preview markup or styling.
-   ========================================================= */
-
-// The preview page is an exact A4 sheet at 96 DPI (794 x 1123 px).
+// A4 export dimensions and unit conversions used by PDF/Word generation.
 const A4_WIDTH_PX = 794;
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
 const A4_WIDTH_TWIP = 11906; // 210mm
 const A4_HEIGHT_TWIP = 16838; // 297mm
-
-// 1 CSS px = 1/96 in = 0.75 pt = 15 twips = 1.5 half-points = 6 eighth-points
 const pxToTwip = (px) => Math.round((Number(px) || 0) * 15);
 const pxToHalfPoint = (px) => Math.max(2, Math.round((Number(px) || 0) * 1.5));
 const pxToEighthPoint = (px) => Math.max(1, Math.round((Number(px) || 0) * 6));
@@ -63,8 +53,6 @@ function cssColorToHex(value) {
 
   const parts = m[1].split(",").map((n) => parseFloat(n));
   const [r, g, b] = parts;
-
-  // Fully transparent borders should not be drawn as black.
   if (parts.length > 3 && parts[3] === 0) return "FFFFFF";
 
   return [r, g, b]
@@ -123,11 +111,6 @@ function cssLineSpacing(computed) {
   return { line: pxToTwip(lineHeight), lineRule: "atLeast" };
 }
 
-/*
- * Force the preview to its real A4 width while a file is being
- * generated, so a phone produces exactly the same geometry as a PC.
- * Returns a function that restores the original inline styles.
- */
 function lockPreviewToExportWidth(page) {
   const previous = {
     width: page.style.width,
@@ -156,15 +139,6 @@ function cleanText(el) {
   return el.textContent.replace(/\s+/g, " ").trim();
 }
 
-/* ---------------------------------------------------------
-   DOM -> docx builders
-   --------------------------------------------------------- */
-
-/*
- * Convert one <th>/<td> from the live preview into a Word table
- * cell that keeps its width, padding, borders, font, horizontal
- * alignment and vertical alignment.
- */
 function domCellToDocxCell(cell, widthTwip, docxLib) {
   const {
     TableCell,
@@ -243,10 +217,6 @@ function domCellToDocxCell(cell, widthTwip, docxLib) {
   });
 }
 
-/*
- * Rebuild the whole preview table in Word using the exact column
- * widths, row heights and cell styles that are on screen.
- */
 function domTableToDocxTable(tableEl, page, docxLib) {
   const { Table, TableRow, WidthType, HeightRule, TableLayoutType } = docxLib;
 
@@ -269,9 +239,6 @@ function domTableToDocxTable(tableEl, page, docxLib) {
   const indentTwip = pxToTwip(Math.max(0, tableRect.left - pageRect.left));
 
   const columnCount = columnWidths.length;
-
-  // Tracks how many rows are still covered by a rowspan started above,
-  // so a cell that follows a merged cell keeps the correct column width.
   const rowSpanRemaining = new Array(columnCount).fill(0);
 
   const rows = Array.from(tableEl.rows).map((row) => {
@@ -279,7 +246,6 @@ function domTableToDocxTable(tableEl, page, docxLib) {
 
     let columnIndex = 0;
     const cells = Array.from(row.cells).map((cell) => {
-      // Skip the columns that a rowspan from a previous row still covers.
       while (columnIndex < columnCount && rowSpanRemaining[columnIndex] > 0) {
         columnIndex += 1;
       }
@@ -325,11 +291,6 @@ function domTableToDocxTable(tableEl, page, docxLib) {
   });
 }
 
-/*
- * Convert a heading/date line from the preview into a Word paragraph
- * that keeps its font, weight, alignment, indents and the vertical
- * gap that sits above it in the preview.
- */
 function domBlockToDocxParagraph(el, page, gaps, docxLib) {
   const { Paragraph, TextRun, AlignmentType } = docxLib;
 
@@ -374,13 +335,9 @@ function domBlockToDocxParagraph(el, page, gaps, docxLib) {
     ],
   });
 }
-
-// Preview mode: "attendance" (default), "event", or "participant".
 let previewMode = "attendance";
 
 const PARTICIPANT_ROW_COUNT = 22;
-
-// Default date = today.
 const today = new Date();
 dateInput.value = [
   today.getFullYear(),
@@ -402,6 +359,7 @@ function escapeHtml(value) {
   );
 }
 
+// Parse a user-entered time range into normalized start and end times.
 function parseTimeRange(raw) {
   const cleaned = raw.trim().replace(/\s+/g, "").replace(/[–—]/g, "-");
 
@@ -486,6 +444,7 @@ function setStatus(message, type = "success") {
       : "bg-emerald-50 text-emerald-700 border border-emerald-200");
 }
 
+// Render the current entry list in the control panel.
 function renderEntries() {
   countBadge.textContent = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
 
@@ -497,16 +456,54 @@ function renderEntries() {
   entryList.innerHTML = entries
     .map(
       (e, i) => `
-      <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-semibold text-slate-800">${escapeHtml(e.name)}${e.id ? ` <span class="font-normal text-slate-400">(${escapeHtml(e.id)})</span>` : ""}</div>
-          <div class="text-xs text-slate-500">${escapeHtml(e.slot)} • ${escapeHtml(e.reporting)}</div>
+    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <div class="min-w-0 flex-1">
+        <div class="truncate text-sm font-semibold text-slate-800">
+          ${escapeHtml(e.name)}
+          ${e.id ? ` <span class="font-normal text-slate-400">(${escapeHtml(e.id)})</span>` : ""}
         </div>
-        <button data-delete="${i}" class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">Delete</button>
+
+        <div class="text-xs text-slate-500">
+          ${escapeHtml(e.slot)} • ${escapeHtml(e.reporting)}
+        </div>
       </div>
-    `,
+
+      <div class="flex gap-2">
+        <button
+          data-edit="${i}"
+          class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50">
+          Edit
+        </button>
+
+        <button
+          data-delete="${i}"
+          class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
+          Delete
+        </button>
+      </div>
+    </div>
+  `,
     )
     .join("");
+
+  entryList.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const index = Number(btn.dataset.edit);
+      const entry = entries[index];
+
+      timeInput.value = entry.rawTime || "";
+      nameInput.value = entry.name;
+      idInput.value = entry.id;
+
+      entries.splice(index, 1);
+
+      renderEntries();
+      renderTable();
+
+      nameInput.focus();
+      setStatus("Entry loaded for editing.");
+    });
+  });
 
   entryList.querySelectorAll("[data-delete]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -517,6 +514,7 @@ function renderEntries() {
   });
 }
 
+// Render the preview table for the active mode.
 function renderTable() {
   if (previewMode === "participant") {
     sheetTitle.textContent = "";
@@ -539,8 +537,6 @@ function renderTable() {
     renderEventTable();
     return;
   }
-
-  // Keep first-seen slot order, while grouping same slots together.
   const groups = [];
   const map = new Map();
 
@@ -660,11 +656,17 @@ function renderParticipantTable() {
   `;
 }
 
+// Update visible controls and preview labels for the active mode.
 function updateControlsForMode() {
   const participant = previewMode === "participant";
-
+  const event = previewMode === "event";
+  const attendance = !participant && !event;
   dateControl.style.display = "block";
-  entryControls.style.display = "";
+  titleControl.style.display = participant || event ? "block" : "none";
+  timeControl.style.display = attendance ? "block" : "none";
+  nameControl.style.display = attendance || event ? "block" : "none";
+  idControl.style.display = event ? "block" : "none";
+  entryControls.style.display = participant ? "none" : "";
   entryActionButtons.style.display = "";
   entriesSection.style.display = "";
 
@@ -684,6 +686,7 @@ function updateControlsForMode() {
   }
 }
 
+// Validate and add a new attendance or event entry.
 function addEntry() {
   if (previewMode === "participant") return;
 
@@ -718,7 +721,7 @@ function addEntry() {
     reporting = format12(parsed.start);
   }
 
-  entries.push({ slot, name, id, reporting });
+  entries.push({ rawTime, slot, name, id, reporting });
 
   timeInput.value = "";
   nameInput.value = "";
@@ -760,14 +763,13 @@ participantBtn.addEventListener("click", () => {
   updateControlsForMode();
   renderTable();
 });
-
-// Keep the title in the participant/event preview in sync while typing.
 titleInput.addEventListener("input", () => {
   if (previewMode === "event" || previewMode === "participant") {
     brandTitle.textContent = titleInput.value.trim() || DEFAULT_BRAND_TITLE;
   }
 });
 
+// Generate the PDF while preserving the live preview layout.
 downloadBtn.addEventListener("click", async () => {
   if (!entries.length && previewMode !== "participant") {
     setStatus("Add at least one entry before downloading the PDF.", "error");
@@ -779,50 +781,19 @@ downloadBtn.addEventListener("click", async () => {
   downloadBtn.textContent = "Generating PDF...";
 
   const page = document.getElementById("pdfPage");
-
-  // Save current mobile styles
   const originalWidth = page.style.width;
   const originalMinWidth = page.style.minWidth;
 
   page.classList.add("pdf-capture");
 
   try {
-    /*
-     * IMPORTANT:
-     * When downloading from phone, temporarily make the PDF page
-     * exactly the same width as the PC version.
-     */
     page.style.width = "794px";
     page.style.minWidth = "794px";
-
-    // Give browser time to apply the desktop-size layout
     await new Promise((resolve) => setTimeout(resolve, 200));
-
-    // Load the footer image once and place it at the bottom of every A4 page.
     const footerDataUrl = await imageElementToDataUrl(
       document.getElementById("pdfFooter"),
     );
 
-    /*
-     * html2canvas does not reproduce "vertical-align: middle" on table
-     * cells the way the browser does, so text can drift toward the
-     * bottom of its cell in the PDF.
-     *
-     * Fix: measure exactly where the browser is already positioning
-     * each cell's text (this page is correctly rendered right now),
-     * then re-apply that exact position as fixed padding on the
-     * cloned copy html2canvas rasterizes, with vertical-align: top so
-     * there is no centering math left for html2canvas to get wrong.
-     * onclone only edits the throwaway clone used for the screenshot,
-     * so the live preview on screen is never touched.
-     */
-
-    // Fine-tune only: raises text by this many px in the exported PDF
-    // (lower it back down with a negative number). Two separate
-    // numbers because header (<th>) text is bold and data-row (<td>)
-    // text is regular weight, so html2canvas can mismeasure each one
-    // differently. Change DATA_CELL_VERTICAL_NUDGE_PX to move the
-    // rows that get created after entering input.
     const HEADER_TEXT_VERTICAL_NUDGE_PX = 6.5;
     const DATA_CELL_VERTICAL_NUDGE_PX = 5.5;
 
@@ -901,10 +872,6 @@ downloadBtn.addEventListener("click", async () => {
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
     const toleranceMm = 1;
-
-    // Keep the footer at the same A4 position as the reference PDF.
-    // It is drawn separately so every page gets the footer, including
-    // multi-page attendance sheets.
     const footerImage = new Image();
     footerImage.src = footerDataUrl;
     await new Promise((resolve, reject) => {
@@ -913,10 +880,6 @@ downloadBtn.addEventListener("click", async () => {
         reject(new Error("Could not load the footer image."));
     });
 
-    /*
-     * Use the footer size exactly as the live preview renders it, so
-     * the exported footer keeps the same height and aspect ratio.
-     */
     const footerEl = document.getElementById("pdfFooter");
     const footerRectHeight = footerEl
       ? footerEl.getBoundingClientRect().height
@@ -942,7 +905,6 @@ downloadBtn.addEventListener("click", async () => {
     };
 
     if (imgHeight <= pageHeight + toleranceMm) {
-      // One A4 page
       pdf.addImage(
         canvas.toDataURL("image/png"),
         "PNG",
@@ -953,7 +915,6 @@ downloadBtn.addEventListener("click", async () => {
       );
       addFooter();
     } else {
-      // Multiple A4 pages
       const pxPerMm = canvas.width / imgWidth;
       const toleranceForLastSlicePx = toleranceMm * pxPerMm;
       const pageHeightPx = Math.round(pageHeight * pxPerMm);
@@ -1038,10 +999,7 @@ downloadBtn.addEventListener("click", async () => {
       "error",
     );
   } finally {
-    // Remove PDF mode
     page.classList.remove("pdf-capture");
-
-    // Restore phone/mobile layout
     page.style.width = originalWidth;
     page.style.minWidth = originalMinWidth;
 
@@ -1050,6 +1008,7 @@ downloadBtn.addEventListener("click", async () => {
   }
 });
 
+// Convert the footer image element into a data URL for PDF export.
 async function imageElementToDataUrl(imageElement) {
   if (!imageElement) {
     throw new Error("Footer image element was not found.");
@@ -1077,6 +1036,7 @@ async function imageElementToDataUrl(imageElement) {
   }
 }
 
+// Fetch an image URL and convert it to bytes for Word export.
 async function imageUrlToUint8Array(url) {
   const response = await fetch(url);
 
@@ -1090,6 +1050,7 @@ async function imageUrlToUint8Array(url) {
   return new Uint8Array(buffer);
 }
 
+// Generate the Word document from the live preview measurements.
 downloadWordBtn.addEventListener("click", async () => {
   if (!entries.length && previewMode !== "participant") {
     setStatus(
@@ -1116,14 +1077,8 @@ downloadWordBtn.addEventListener("click", async () => {
     const docxLib = window.docx;
     const { Document, Packer, Paragraph, TextRun, ImageRun, Footer } = docxLib;
 
-    /*
-     * Measure the preview exactly as it is drawn for the PDF, so the
-     * Word file and the PDF are built from the very same geometry.
-     */
     page.classList.add("pdf-capture");
     restoreLayout = lockPreviewToExportWidth(page);
-
-    // Give the browser time to apply the desktop-size layout.
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     const pageStyle = window.getComputedStyle(page);
@@ -1138,8 +1093,6 @@ downloadWordBtn.addEventListener("click", async () => {
     if (!headerImgEl) {
       throw new Error("Header image element was not found.");
     }
-
-    // ----- Header image (spans the full page width, like the preview)
     const headerRect = headerImgEl.getBoundingClientRect();
     const headerBytes = await imageUrlToUint8Array(headerImgEl.src);
 
@@ -1155,8 +1108,6 @@ downloadWordBtn.addEventListener("click", async () => {
         }),
       ],
     });
-
-    // ----- Text blocks between the header image and the table
     const blockElements = [participantDate, brandTitle, sheetTitle].filter(
       isVisibleBlock,
     );
@@ -1168,10 +1119,6 @@ downloadWordBtn.addEventListener("click", async () => {
       previousBottom = rect.bottom;
       return { el, before, after: 0 };
     });
-
-    // The gap between the last text block and the table becomes the
-    // "space after" of that block, because Word tables have no
-    // spacing-before of their own.
     if (tableEl && blockGaps.length) {
       const tableTop = tableEl.getBoundingClientRect().top;
       blockGaps[blockGaps.length - 1].after = Math.max(
@@ -1188,15 +1135,11 @@ downloadWordBtn.addEventListener("click", async () => {
         docxLib,
       ),
     );
-
-    // ----- The attendance / event / participant table itself
     const bodyChildren = [headerParagraph, ...blockParagraphs];
 
     if (tableEl) {
       bodyChildren.push(domTableToDocxTable(tableEl, page, docxLib));
     }
-
-    // ----- Footer image, repeated at the bottom of every page
     let footerSection;
     let footerHeightTwip = 0;
 
@@ -1258,8 +1201,6 @@ downloadWordBtn.addEventListener("click", async () => {
         },
       ],
     });
-
-    // Every measurement is done: give the preview its own layout back.
     restoreLayout();
     restoreLayout = null;
     page.classList.remove("pdf-capture");

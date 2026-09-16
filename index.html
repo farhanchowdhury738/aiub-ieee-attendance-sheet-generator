@@ -47,19 +47,21 @@
           />
         </div>
 
-        <label class="mb-2 block text-sm font-semibold">Title</label>
-        <input
-          id="titleInput"
-          type="text"
-          placeholder="IEEE AIUB Student Branch"
-          class="mb-5 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-        />
+        <div id="titleControl">
+          <label class="mb-2 block text-sm font-semibold">Title</label>
+          <input
+            id="titleInput"
+            type="text"
+            placeholder="IEEE AIUB Student Branch"
+            class="mb-5 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          />
+        </div>
 
         <div
           id="entryControls"
           class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
         >
-          <div>
+          <div id="timeControl">
             <label class="mb-2 block text-sm font-semibold">Time Range</label>
             <input
               id="timeInput"
@@ -69,7 +71,7 @@
             />
           </div>
 
-          <div>
+          <div id="nameControl">
             <label class="mb-2 block text-sm font-semibold">Name</label>
             <input
               id="nameInput"
@@ -79,7 +81,7 @@
             />
           </div>
 
-          <div>
+          <div id="idControl">
             <label class="mb-2 block text-sm font-semibold">ID</label>
             <input
               id="idInput"
