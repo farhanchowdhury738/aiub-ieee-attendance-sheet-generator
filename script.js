@@ -42,6 +42,17 @@ const pxToHalfPoint = (px) => Math.max(2, Math.round((Number(px) || 0) * 1.5));
 const pxToEighthPoint = (px) => Math.max(1, Math.round((Number(px) || 0) * 6));
 const pxToMm = (px) => ((Number(px) || 0) * A4_WIDTH_MM) / A4_WIDTH_PX;
 
+
+// input field Validation
+nameInput.addEventListener("input", () => {
+  nameInput.value = nameInput.value.replace(/[^A-Za-z ]/g, "");
+});
+
+idInput.addEventListener("input", () => {
+  idInput.value = idInput.value.replace(/[^0-9]/g, "");
+});
+
+
 function cssNumber(value) {
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : 0;
